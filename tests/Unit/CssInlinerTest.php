@@ -1832,7 +1832,7 @@ class CssInlinerTest extends \PHPUnit_Framework_TestCase
      */
     public function matchingSelectorWithPseudoComponentCssRuleDataProvider()
     {
-        return $this->getCssRuleDatasetsWithSelectorPseudoComponents(
+        $datasetsWithSelectorPseudoComponents = $this->getCssRuleDatasetsWithSelectorPseudoComponents(
             [
                 'lone' => '',
                 'type &' => 'a',
@@ -1843,12 +1843,15 @@ class CssInlinerTest extends \PHPUnit_Framework_TestCase
                 'ancestor &' => 'p ',
                 'ancestor & type &' => 'p a',
             ]
-        ) + [
+        );
+        $dataSetsWithCombinedPseudoSelectors = [
             'pseudo-class & descendant' => ['p:hover a { color: green; }'],
             'pseudo-class & pseudo-element' => ['a:hover::after { content: "bar"; }'],
             'pseudo-element & pseudo-class' => ['a::after:hover { content: "bar"; }'],
             'two pseudo-classes' => ['a:focus:hover { color: green; }'],
         ];
+
+        return \array_merge($datasetsWithSelectorPseudoComponents, $dataSetsWithCombinedPseudoSelectors);
     }
 
     /**
@@ -1873,7 +1876,7 @@ class CssInlinerTest extends \PHPUnit_Framework_TestCase
      */
     public function nonMatchingSelectorWithPseudoComponentCssRuleDataProvider()
     {
-        return $this->getCssRuleDatasetsWithSelectorPseudoComponents(
+        $datasetsWithSelectorPseudoComponents = $this->getCssRuleDatasetsWithSelectorPseudoComponents(
             [
                 'type &' => 'b',
                 'class &' => '.b',
@@ -1883,12 +1886,15 @@ class CssInlinerTest extends \PHPUnit_Framework_TestCase
                 'ancestor &' => 'ul ',
                 'ancestor & type &' => 'p b',
             ]
-        ) + [
+        );
+        $dataSetsWithCombinedPseudoSelectors = [
             'pseudo-class & descendant' => ['ul:hover a { color: green; }'],
             'pseudo-class & pseudo-element' => ['b:hover::after { content: "bar"; }'],
             'pseudo-element & pseudo-class' => ['b::after:hover { content: "bar"; }'],
             'two pseudo-classes' => ['input:focus:hover { color: green; }'],
         ];
+
+        return \array_merge($datasetsWithSelectorPseudoComponents, $dataSetsWithCombinedPseudoSelectors);
     }
 
     /**
@@ -2165,12 +2171,12 @@ class CssInlinerTest extends \PHPUnit_Framework_TestCase
      */
     public function emogrifyByDefaultRemovesElementsWithDisplayNoneFromExternalCss()
     {
-        $this->subject->setHtml('<html><body><div class="bar"></div><div class="foo"></div></body></html>');
+        $this->subject->setHtml('<html><body><div class="foo"></div></body></html>');
         $this->subject->setCss('div.foo { display: none; }');
 
         $result = $this->subject->emogrify();
 
-        static::assertContains('<div class="bar"></div>', $result);
+        static::assertNotContains('<div class="foo"></div>', $result);
     }
 
     /**
@@ -2179,13 +2185,13 @@ class CssInlinerTest extends \PHPUnit_Framework_TestCase
     public function emogrifyByDefaultRemovesElementsWithDisplayNoneInStyleAttribute()
     {
         $this->subject->setHtml(
-            '<html><body><div class="bar"></div><div class="foobar" style="display: none;"></div>' .
+            '<html><body><div class="foobar" style="display: none;"></div>' .
             '</body></html>'
         );
 
         $result = $this->subject->emogrify();
 
-        static::assertContains('<div class="bar"></div>', $result);
+        static::assertNotContains('<div', $result);
     }
 
     /**
@@ -2193,13 +2199,13 @@ class CssInlinerTest extends \PHPUnit_Framework_TestCase
      */
     public function emogrifyAfterDisableInvisibleNodeRemovalPreservesInvisibleElements()
     {
-        $this->subject->setHtml('<html><body><div class="bar"></div><div class="foo"></div></body></html>');
+        $this->subject->setHtml('<html><body><div class="foo"></div></body></html>');
         $this->subject->setCss('div.foo { display: none; }');
 
         $this->subject->disableInvisibleNodeRemoval();
         $result = $this->subject->emogrify();
 
-        static::assertContains('<div class="foo" style="display: none;">', $result);
+        static::assertContains('<div class="foo"', $result);
     }
 
     /**
@@ -2219,42 +2225,20 @@ class CssInlinerTest extends \PHPUnit_Framework_TestCase
 
     /**
      * @test
+     *
+     * @param string $documentType
+     *
+     * @dataProvider documentTypeDataProvider
      */
-    public function emogrifyForXhtmlDocumentTypeConvertsXmlSelfClosingTagsToNonXmlSelfClosingTag()
+    public function emogrifyConvertsXmlSelfClosingTagsToNonXmlSelfClosingTag($documentType)
     {
         $this->subject->setHtml(
-            '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" ' .
-            '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">' .
-            '<html><body><br/></body></html>'
+            $documentType . '<html><body><br/></body></html>'
         );
 
         $result = $this->subject->emogrify();
 
-        static::assertContains('<body><br></body>', $result);
-    }
-
-    /**
-     * @test
-     */
-    public function emogrifyForHtml5DocumentTypeKeepsNonXmlSelfClosingTagsAsNonXmlSelfClosing()
-    {
-        $this->subject->setHtml($this->html5DocumentType . '<html><body><br></body></html>');
-
-        $result = $this->subject->emogrify();
-
-        static::assertContains('<body><br></body>', $result);
-    }
-
-    /**
-     * @test
-     */
-    public function emogrifyForHtml5DocumentTypeConvertXmlSelfClosingTagsToNonXmlSelfClosingTag()
-    {
-        $this->subject->setHtml($this->html5DocumentType . '<html><body><br/></body></html>');
-
-        $result = $this->subject->emogrify();
-
-        static::assertContains('<body><br></body>', $result);
+        static::assertContains('<br>', $result);
     }
 
     /**
@@ -2303,7 +2287,7 @@ class CssInlinerTest extends \PHPUnit_Framework_TestCase
     /**
      * @test
      */
-    public function emogrifyBodyContentReturnsBodyContentFromContent()
+    public function emogrifyBodyContentReturnsBodyContentFromPartialContent()
     {
         $this->subject->setHtml('<p></p>');
 
@@ -2316,6 +2300,8 @@ class CssInlinerTest extends \PHPUnit_Framework_TestCase
      * Sets HTML of subject to boilerplate HTML with a single `<p>` in `<body>` and empty `<head>`
      *
      * @param string $style Optional value for the style attribute of the `<p>` element
+     *
+     * @return void
      */
     private function setSubjectBoilerplateHtml($style = '')
     {
@@ -2356,7 +2342,7 @@ class CssInlinerTest extends \PHPUnit_Framework_TestCase
     /**
      * @test
      */
-    public function emogrifyHandlesImportantStyleTagCaseInsensitive()
+    public function importantIsCaseInsensitive()
     {
         $this->setSubjectBoilerplateHtml('margin: 2px;');
         $this->subject->setCss('p { margin: 1px !ImPorTant; }');
@@ -2376,10 +2362,7 @@ class CssInlinerTest extends \PHPUnit_Framework_TestCase
 
         $result = $this->subject->emogrify();
 
-        static::assertContains(
-            '<p style="margin: 2px;">',
-            $result
-        );
+        static::assertContains('<p style="margin: 2px;">', $result);
     }
 
     /**
@@ -2392,10 +2375,7 @@ class CssInlinerTest extends \PHPUnit_Framework_TestCase
 
         $result = $this->subject->emogrify();
 
-        static::assertContains(
-            '<p style="margin: 2px;">',
-            $result
-        );
+        static::assertContains('<p style="margin: 2px;">', $result);
     }
 
     /**
@@ -2408,10 +2388,7 @@ class CssInlinerTest extends \PHPUnit_Framework_TestCase
 
         $result = $this->subject->emogrify();
 
-        static::assertContains(
-            '<p style="margin: 1px;">',
-            $result
-        );
+        static::assertContains('<p style="margin: 1px;">', $result);
     }
 
     /**
@@ -2424,10 +2401,7 @@ class CssInlinerTest extends \PHPUnit_Framework_TestCase
 
         $result = $this->subject->emogrify();
 
-        static::assertContains(
-            '<p style="margin-top: 1px; margin: 2px;">',
-            $result
-        );
+        static::assertContains('<p style="margin-top: 1px; margin: 2px;">', $result);
     }
 
     /**
@@ -2440,10 +2414,7 @@ class CssInlinerTest extends \PHPUnit_Framework_TestCase
 
         $result = $this->subject->emogrify();
 
-        static::assertContains(
-            '<p style="margin: 2px; margin-top: 3px;">',
-            $result
-        );
+        static::assertContains('<p style="margin: 2px; margin-top: 3px;">', $result);
     }
 
     /**
@@ -2456,10 +2427,7 @@ class CssInlinerTest extends \PHPUnit_Framework_TestCase
 
         $result = $this->subject->emogrify();
 
-        static::assertContains(
-            '<p style="margin: 2px; margin-top: 3px;">',
-            $result
-        );
+        static::assertContains('<p style="margin: 2px; margin-top: 3px;">', $result);
     }
 
     /**
@@ -2472,10 +2440,7 @@ class CssInlinerTest extends \PHPUnit_Framework_TestCase
 
         $result = $this->subject->emogrify();
 
-        static::assertContains(
-            '<p style="margin: 2px; margin-top: 3px;">',
-            $result
-        );
+        static::assertContains('<p style="margin: 2px; margin-top: 3px;">', $result);
     }
 
     /**
