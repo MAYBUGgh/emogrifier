@@ -311,13 +311,22 @@ class Emogrifier
      *
      * This method places the CSS inline.
      *
+     * @param bool $prevent_transformations Set true to prevent urls encoding and other HTML transformations
+     *
      * @return string
      *
      * @throws \BadMethodCallException
      */
-    public function emogrify()
+    public function emogrify($prevent_transformations = false)
     {
-        return $this->createAndProcessXmlDocument()->saveHTML();
+        $doc = $this->createAndProcessXmlDocument();
+
+        if($prevent_transformations){
+            return $doc->saveXML($doc->documentElement);
+
+        } else {
+            return $doc->saveHTML();
+        }
     }
 
     /**
